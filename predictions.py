@@ -10,6 +10,30 @@ import streamlit as st
 
 st.set_page_config(layout="wide")
 
+# Check if model file exists
+MODEL_FILE = 'weights.hdf5'
+if not os.path.exists(MODEL_FILE):
+    st.error(f"""
+    ### Model File Not Found!
+    
+    The model file `{MODEL_FILE}` is required to run this application but was not found.
+    
+    **To fix this issue:**
+    
+    1. **Train a model** using one of the provided Jupyter notebooks:
+       - `Xception 93%.ipynb` (recommended - 93% accuracy)
+       - `VGG 92% F2 Score.ipynb`
+       - `Inception V3.ipynb`
+       - `Custom Model.ipynb`
+    
+    2. **Place the model file** in the root directory of the project as `weights.hdf5`
+    
+    3. **Restart the application** using: `streamlit run predictions.py`
+    
+    For more details, see the README.md file.
+    """)
+    st.stop()
+
 # Set background image function
 def set_bg_hack_url():
     st.markdown(
@@ -27,17 +51,21 @@ def set_bg_hack_url():
 # Load the model with the corrected reduction argument
 @st.cache_resource
 def load_model():
-    model = keras.models.load_model('weights.hdf5', compile=False)
-    # Re-compile with valid reduction parameter
-    model.compile(
-        optimizer=keras.optimizers.Adam(learning_rate=1e-5),
-        loss=keras.losses.CategoricalCrossentropy(reduction='sum_over_batch_size'),
-        metrics=['accuracy']
-    )
-    # Optionally unfreeze layers for fine-tuning
-    for layer in model.layers[-4:]:
-        layer.trainable = True
-    return model
+    try:
+        model = keras.models.load_model(MODEL_FILE, compile=False)
+        # Re-compile with valid reduction parameter
+        model.compile(
+            optimizer=keras.optimizers.Adam(learning_rate=1e-5),
+            loss=keras.losses.CategoricalCrossentropy(reduction='sum_over_batch_size'),
+            metrics=['accuracy']
+        )
+        # Optionally unfreeze layers for fine-tuning
+        for layer in model.layers[-4:]:
+            layer.trainable = True
+        return model
+    except Exception as e:
+        st.error(f"Error loading model: {str(e)}")
+        st.stop()
 
 # Define a prediction pipeline
 def get_pipeline():
@@ -100,6 +128,8 @@ def main():
                 with st.spinner('Predicting...'):
                     prediction = output(full_pipeline, img)
                 st.success(f"Prediction: {prediction}")
+            else:
+                st.warning("Please upload an image first!")
 
 if __name__ == '__main__':
     main()
